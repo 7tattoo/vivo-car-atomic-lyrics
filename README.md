@@ -59,7 +59,7 @@ builder.putString("ucar.media.metadata.LYRICS_WHOLE", lrc);
 - **只要车机主页滚动歌词** → 从上面任选一个。
 - **还要原子通知 / 原子随身听歌词** → 只能选 `com.apple.android.music` 或 `com.spotify.music`
   （这两个的 `MediaBrowserService` 才需要加 `com.vivo.musicwidgetmix.support.service` action）。
-- **冲突**：`com.spotify.music` 与 SamsungMusicRC 同包名，同机签名不同装不上第二个。
+- **冲突**：同机签名不同装不上第二个。
 - 白名单之外未经实机验证，别擅自选用。完整支持矩阵见 [references/whitelist-packages.md](references/whitelist-packages.md)。
 
 ## 目录
