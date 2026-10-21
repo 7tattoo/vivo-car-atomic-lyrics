@@ -14,7 +14,7 @@ version: 1.1.0
 
 ## 决策流（先问，别默认全做）
 
-1. **只要求 JoviInCar 车载歌词**：先询问用户，让他从 10 个实机验证过的包名里选一个（清单见 references/whitelist-packages.md）。
+1. **只要求 JoviInCar 车载歌词**：先询问用户，让他从 11 个实机验证过的包名里选一个（清单见 references/whitelist-packages.md）。
 2. **要求包含原子通知歌词**：先询问用户，让他在 Apple Music / Spotify 两个包名中选一个。
 
 选完目标包名再往下走。**不要跳过询问直接开干**。
@@ -106,7 +106,7 @@ done
 - [references/protocols.md](references/protocols.md) 两套协议字段表、能力位、manifest 声明、发送时机
 - [references/troubleshooting.md](references/troubleshooting.md) 症状→根因速查表
 - [references/projects.md](references/projects.md) 四个项目的适配档案
-- [references/whitelist-packages.md](references/whitelist-packages.md) 10 个包名白名单 + 支持矩阵
+- [references/whitelist-packages.md](references/whitelist-packages.md) 11 个包名白名单 + 支持矩阵
 - [references/find-hook-points.md](references/find-hook-points.md) 如何定位 metadata 汇聚点 / 歌词加载器
 - [references/smali-rules.md](references/smali-rules.md) smali 层适配戒律与验证链
 - [references/bridge-template.java](references/bridge-template.java) 最小可用实现类

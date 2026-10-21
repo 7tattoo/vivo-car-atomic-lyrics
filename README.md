@@ -37,6 +37,31 @@ builder.putString("ucar.media.metadata.LYRICS_WHOLE", lrc);
 
 细节见 [SKILL.md](SKILL.md) 的「四条工程要点」与 [references/bridge-template.java](references/bridge-template.java)。
 
+## 实机验证过的包名（适配时克隆成其中之一）
+
+以下包名实测支持 JoviInCar 主页滚动歌词（且不套用车载音乐皮肤）。适配时把目标 App 的
+`applicationId` 改成选定的一个：
+
+| 包名 | 应用 | JoviInCar 滚动歌词 | 原子通知歌词 |
+| --- | --- | :---: | :---: |
+| `com.spotify.music` | Spotify | ✅ | ✅ |
+| `com.apple.android.music` | Apple Music | ✅ | ✅ |
+| `com.tencent.wecarflow` | Tx 爱趣听 | ✅ | — |
+| `com.tencent.ibg.joox` | Joox 音乐 | ✅ | — |
+| `com.luna.music.car` | 汽水音乐车机版 | ✅ | — |
+| `com.kugou.android.auto` | 酷狗音乐车载版 | ✅ | — |
+| `cn.kuwo.kwmusiccar` | 酷我音乐车机版 | ✅ | — |
+| `com.netease.cloudmusic.iot` | 网易云音乐车载版 | ✅ | — |
+| `cn.aqzscn.stream_music` | 音流 | ✅ | — |
+| `com.qidian.QDReader` | 起点读书 | ✅ | — |
+| `com.tencent.weread` | 微信读书 | ✅ | — |
+
+- **只要车机主页滚动歌词** → 从上面任选一个。
+- **还要原子通知 / 原子随身听歌词** → 只能选 `com.apple.android.music` 或 `com.spotify.music`
+  （这两个的 `MediaBrowserService` 才需要加 `com.vivo.musicwidgetmix.support.service` action）。
+- **冲突**：`com.spotify.music` 与 SamsungMusicRC 同包名，同机签名不同装不上第二个。
+- 白名单之外未经实机验证，别擅自选用。完整支持矩阵见 [references/whitelist-packages.md](references/whitelist-packages.md)。
+
 ## 目录
 
 ```
@@ -45,7 +70,7 @@ references/
   protocols.md                  两套协议字段表、能力位、manifest 声明、发送时机
   troubleshooting.md            症状 → 根因速查表
   projects.md                   四个历史项目的适配档案
-  whitelist-packages.md         10 个实机验证过的包名 + 支持矩阵
+  whitelist-packages.md         11 个实机验证过的包名 + 支持矩阵
   find-hook-points.md           如何定位 metadata 汇聚点 / 歌词加载器
   smali-rules.md                smali 层适配戒律与验证链
   bridge-template.java          最小可用实现类（可直接拷进工程）
