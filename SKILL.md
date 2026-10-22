@@ -1,7 +1,7 @@
 ---
 name: vivo-car-atomic-lyrics
-description: 把任意 Android 音乐 / 音频 App 适配到 vivo 车机的两个歌词显示位：JoviInCar 车联投屏主页滚动歌词（ucar 通道）与原子随身听 / 原子通知歌词（vivomusicmix 通道）。沉淀 hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四项目的实车适配方法。触发词：joviincar 车载歌词、joviincar 歌词适配、车机滚动歌词、车联投屏歌词、原子通知歌词、原子随身听歌词、车载歌词不滚动、切歌变单行、车机单行歌词、vivo 车机歌词、ucar 歌词、vivomusicmix、LYRICS_WHOLE、lrc_change、support_event。当用户说「把 xxx 适配 joviincar 车载歌词」或「给 xxx 加原子通知歌词」时使用。
-version: 1.1.0
+description: 把任意 Android 音乐 / 音频 App 适配到 vivo 车机的两个歌词显示位：JoviInCar 车联投屏主页滚动歌词（ucar 通道）与原子随身听 / 原子通知歌词（vivomusicmix 通道）。沉淀 hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四项目的实车适配方法。触发词：joviincar 车载歌词、joviincar 歌词适配、车机滚动歌词、车联投屏歌词、原子通知歌词、原子随身听歌词、车载歌词不滚动、切歌变单行、车机单行歌词、vivo 车机歌词、ucar 歌词、vivomusicmix、LYRICS_WHOLE、lrc_change、support_event。当用户说「把 xxx 适配 joviincar 车载歌词」或「给 xxx 加原子通知歌词」时使用。⚠️ 强制前置：动手前必须先向用户确认目标包名（要原子通知歌词时只能在 Apple Music / Spotify 二选一），禁止自行指定包名、禁止先干活后补问。
+version: 1.1.1
 ---
 # vivo 车机滚动歌词 + 原子随身听适配 Skill
 
@@ -12,12 +12,55 @@ version: 1.1.0
 
 来源：hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四个项目的实车适配，汇总自 `VIVO_CAR_LYRICS_GUIDE.md` 与 `APK_UPDATE_GUIDE.zh-CN.md.txt`。文档里所有「绝不能做」都是踩过的坑。
 
-## 决策流（先问，别默认全做）
+## ⛔ 第 0 步：包名闸门（强制，先停下）
 
-1. **只要求 JoviInCar 车载歌词**：先询问用户，让他从 11 个实机验证过的包名里选一个（清单见 references/whitelist-packages.md）。
-2. **要求包含原子通知歌词**：先询问用户，让他在 Apple Music / Spotify 两个包名中选一个。
+**这是唯一允许「先问再做」的地方，也是绝不能跳的一步。**
 
-选完目标包名再往下走。**不要跳过询问直接开干**。
+在动手改任何代码、反编译、建工程、跑脚本之前，**必须先向用户确认目标包名**，拿到用户明确回答后才能继续。
+
+### 硬性规则
+
+1. **禁止自行指定包名。** 不许因为「Spotify 支持两个通道」「Apple Music 文档写得最全」「看起来更通用」就替用户选。
+   用户没说包名 = 你没有授权 = 不能开工。
+2. **禁止先干活后补问。** 不许「我先把桥接写好在 Spotify 包名上，等下再问」。
+   包名决定 `applicationId`、manifest、native `.so` 绑定、交付文件名，改一次等于返工一次。
+3. **按需求分支提问，一次问清**：
+   - 用户只要 **JoviInCar 车机主页滚动歌词** → 从 11 个实机验证包名里让他选一个。
+   - 用户要 **原子通知 / 原子随身听歌词**（不论是否同时要 JoviInCar）→ **只能在 2 个里选**：
+     `com.apple.android.music`（Apple Music）、`com.spotify.music`（Spotify）。
+     此时把这两个选项摆出来让用户挑，**不要默认 Spotify**。
+4. **用户答「随便 / 你定」也不行。** 这是需要用户拍板的决策（影响与其它 App 的包名冲突、是否覆盖已有安装）。
+   把选项和各自代价（尤其 `com.spotify.music` 与 SamsungMusicRC 撞包名）说清楚，让他明确点一个。
+5. **答案拿到后回读一遍**：「目标包名 `xxx`，用于 JoviInCar 滚动歌词 + 原子通知歌词，确认？」用户点头再动手。
+6. 用户若要求白名单外的包名 → 说明未实机验证的风险，让他确认后再用。
+
+### 交付自检
+
+交付前检查：**成品 APK 的包名 == 用户确认的包名**。不一致就是本步失败，不要交付。
+
+### 标准问法（照抄即可）
+
+> 适配 vivo 车机歌词需要先确定目标包名，它会写进 `applicationId`，后续不好改：
+>
+> **你只要 JoviInCar 车机主页滚动歌词，还是同时要原子通知 / 原子随身听歌词？**
+> - 只要 JoviInCar → 下面 11 个任选（推荐 …… 按你的机型/已有安装来）
+> - 要原子通知 → 只能二选一：`com.apple.android.music`（Apple Music）/ `com.spotify.music`（Spotify）
+>
+> 注意 `com.spotify.music` 与 SamsungMusicRC 同包名，同机装不了两个。
+
+完整包名清单与支持矩阵见 [references/whitelist-packages.md](references/whitelist-packages.md)。
+
+---
+
+## 包名确认之后：执行流程
+
+拿到用户确认的包名，才进入下面这些步骤（顺序不要颠倒）：
+
+1. 读 [references/projects.md](references/projects.md) 找同类项目的适配档案
+2. 用 `scripts/find_metadata_exits.sh` 定位 metadata 汇聚点
+3. 按 [references/bridge-template.java](references/bridge-template.java) 实现桥接类，接入 5 个 hook
+4. 出包后用 `scripts/check_protocol_fields.sh` 做字段级验证
+5. 交付前自检包名是否 == 用户确认的包名
 
 ## 一句话核心认知
 

@@ -37,6 +37,15 @@ builder.putString("ucar.media.metadata.LYRICS_WHOLE", lrc);
 
 细节见 [SKILL.md](SKILL.md) 的「四条工程要点」与 [references/bridge-template.java](references/bridge-template.java)。
 
+## ⚠️ 用这个 skill 时，第一步是确认包名
+
+包名会写进 `applicationId`，改一次等于返工一次。**动手前必须先跟用户确认，不许模型自己指定。**
+
+- 只要 JoviInCar 车机主页滚动歌词 → 下面 11 个任选
+- 要原子通知 / 原子随身听歌词 → **只能二选一**：`com.apple.android.music` / `com.spotify.music`
+- 用户答「随便 / 你定」也不行，要把选项和代价讲清楚让他明确点一个
+- 交付前自检：成品 APK 的包名 == 用户确认的包名
+
 ## 实机验证过的包名（适配时克隆成其中之一）
 
 以下包名实测支持 JoviInCar 主页滚动歌词（且不套用车载音乐皮肤）。适配时把目标 App 的
