@@ -1,4 +1,4 @@
-# 四个历史项目的适配档案
+# 五个历史项目的适配档案
 
 > 先看同类项目怎么做的，再动手。每个项目代表一种目标 App 类型。
 
@@ -34,9 +34,19 @@
 - **引擎/语言**：Flutter。
 - **关键认知**：`lrc_change` 事件是**车机 + 仪表两个显示位的共同来源**（`onExtrasChanged()` → `WholeLyricManager` 自己按进度切行）。所以 `lrc_change` **不能删也不能改拼写**。
 - **坑**：`artUri` 用 `http://`（某些车机/原子组件不消费 `https://` 封面 URI；kugou API 原生就是 http，原子 networkSecurityConfig 允许明文）。反向替换 `https://` → `http://`。
+  > [注意] 这条结论**会随组件版本反转**：kgka_Music_hl 在 2026-10 的 vivo 组件上实测 http 被拦、必须 https。做新项目时两种都试一遍再定论，别照抄。见 [card-cover.md](card-cover.md) 第 3 条。
 - **另一坑**：metadata 不再携带整段歌词（UCAR_LYRICS_WHOLE/LYRICS_STATUS 停用），歌词照走 `lrc_change` extras 事件。
 - **能力位**：`support_event=31` 全更新；manifest 加 `com.vivo.musicwidgetmix.support.service` action。
 - 仪表长句截断与逐句封面重载属**车联侧固定逻辑**（`HudManager`），已决定不处理，不要再提出绕过方案。
+
+## 5. kgka_Music_hl（Flutter + audio_service，酷狗 / 网易云双源）
+
+- **引擎/语言**：Flutter + `audio_service` 0.18.x + 原生 Kotlin 桥（`VivoCarLyrics.kt`）；包名由 flavor 提供（`com.apple.android.music` / `com.spotify.music`，沿用白名单策略）。
+- **通道**：歌词 + 能力位 + 封面**全部经 `MediaItem.extras` 发布**，让 audio_service 自己写回 metadata —— 它每次 `mediaItem.add()` 都整份 `setMetadata()`（实测 `AudioService.java:786-804`）。只走原生通道注入的字段，任何一次逐行歌词更新都会被抹掉。
+- **关键**：`support_event=31` 放进**初始** extras（组件绑定时只读一次）；整段 LRC 走 `lrc_change`（25s 兜底重发）；逐行歌词更新时也要把协议 extras 一起带上。
+- **封面 8 条坑全踩过**：`{size}` 占位符 404、http 被拦、原图过大超时、酷狗搜索接口不给 `imgurl`、永久负缓存、空串清空已投递封面、`artUri` 读原始字段而不是异步补取结果。完整复盘见 [card-cover.md](card-cover.md)。
+- **UI 侧同时踩到**：升级安装后首启，播放页在「没有当前歌曲」时返回空 `Scaffold` → 整屏纯黑、没有返回入口；冷启动首帧 `MediaQuery.size = 0×0` 又被误判成极小窗口 → 进纯黑兜底页。两处都要换成可见、可退的兜底。
+- **教训**：用户报「封面纯色」时，先分层（原始地址 / 归一后地址 / 卡片侧拉图），别一上来改协议 —— 这次真正的根因里没有一条是协议字段写错。
 
 ## 通用经验（跨项目）
 

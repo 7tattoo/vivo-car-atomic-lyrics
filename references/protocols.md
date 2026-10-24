@@ -106,3 +106,19 @@ private static boolean shouldResendLrc() {
 ### 2.5 关键认知：lrc_change 是两个显示位的共同来源
 
 反编译车联 6.0.8.3 确认：车联**并不读取** `music.media.extras.*` 那三个 key，车机和仪表的歌词实际来自原子随身听 `lrc_change` 整首 LRC 事件：车联在 `eg/l.java onExtrasChanged()` 里消费同一个事件并自己按时间切行。所以 **`lrc_change` 事件是车机歌词的真正来源，不能删也不能改拼写**；`music.media.extras.*` 三个 key 保留是为了兼容其它车联版本。
+
+## 3. 封面（artUri）投递规则
+
+封面走的是**独立链路**，和歌词互不依赖，字段很简单但工程坑最多（见 [card-cover.md](card-cover.md)）。
+
+| 项 | 规则 |
+|---|---|
+| 载体 | `MediaMetadata.artUri`（framework）/ `MediaItem.artUri`（audio_service / media3） |
+| 协议 | **只投 `http(s)`**：`content://`、`file://` 卡片侧拉不到 |
+| 尺寸 | 480px 级小图；原图 1~2MB 会下载超时 → 纯色 |
+| 归一化 | https + 替换 `{size}` 占位符 + `Uri.parse` 转义，统一一个出口函数 |
+| 空串语义 | **不是清空**：非空才覆盖，换曲才清 |
+| 能力位 | `support_event = 31` 要随**首个** MediaItem / extras 一起发布 |
+| 整份替换 | `audio_service` 每次 `mediaItem.add()` 都整份 `setMetadata()`，协议字段必须放进 `extras` 才会被写回 |
+
+诊断日志要分四层：`songId / 原始地址 / 归一后地址 / 是否为空`。原始有、归一后空 = 地址不合法；归一后有、卡片仍纯色 = 卡片侧拉图被拦或超时；原始就空 = 数据源没给。

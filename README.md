@@ -78,7 +78,8 @@ SKILL.md                        完整方法论（决策流、5 个 hook、热�
 references/
   protocols.md                  两套协议字段表、能力位、manifest 声明、发送时机
   troubleshooting.md            症状 → 根因速查表
-  projects.md                   四个历史项目的适配档案
+  card-cover.md                 卡片封面（纯色）8 条坑 + 归一化函数 + 诊断日志
+  projects.md                   五个历史项目的适配档案
   whitelist-packages.md         11 个实机验证过的包名 + 支持矩阵
   find-hook-points.md           如何定位 metadata 汇聚点 / 歌词加载器
   smali-rules.md                smali 层适配戒律与验证链
@@ -116,7 +117,7 @@ cp -r vivo-car-atomic-lyrics ~/.claude/skills/     # 或你的 skill 目录
 ```
 
 `SKILL.md` 的 frontmatter（`name` / `description` / `version`）会被识别，触发词包括
-「joviincar 车载歌词」「车联投屏歌词」「原子通知歌词」「ucar 歌词」「vivomusicmix」等。
+「joviincar 车载歌词」「车联投屏歌词」「原子通知歌词」「ucar 歌词」「vivomusicmix」「卡片封面纯色」等。
 
 ## 免责声明
 

@@ -1,7 +1,7 @@
 ---
 name: vivo-car-atomic-lyrics
-description: 把任意 Android 音乐 / 音频 App 适配到 vivo 车机的两个歌词显示位：JoviInCar 车联投屏主页滚动歌词（ucar 通道）与原子随身听 / 原子通知歌词（vivomusicmix 通道）。沉淀 hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四项目的实车适配方法。触发词：joviincar 车载歌词、joviincar 歌词适配、车机滚动歌词、车联投屏歌词、原子通知歌词、原子随身听歌词、车载歌词不滚动、切歌变单行、车机单行歌词、vivo 车机歌词、ucar 歌词、vivomusicmix、LYRICS_WHOLE、lrc_change、support_event。当用户说「把 xxx 适配 joviincar 车载歌词」或「给 xxx 加原子通知歌词」时使用。⚠️ 强制前置：动手前必须先向用户确认目标包名（要原子通知歌词时只能在 Apple Music / Spotify 二选一），禁止自行指定包名、禁止先干活后补问。
-version: 1.1.1
+description: 把任意 Android 音乐 / 音频 App 适配到 vivo 车机的两个歌词显示位：JoviInCar 车联投屏主页滚动歌词（ucar 通道）与原子随身听 / 原子通知歌词（vivomusicmix 通道）。沉淀 hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四项目的实车适配方法。触发词：joviincar 车载歌词、joviincar 歌词适配、车机滚动歌词、车联投屏歌词、原子通知歌词、原子随身听歌词、车载歌词不滚动、切歌变单行、车机单行歌词、vivo 车机歌词、ucar 歌词、vivomusicmix、LYRICS_WHOLE、lrc_change、support_event、卡片封面纯色、原子通知没封面、车机卡片封面、artUri。当用户说「把 xxx 适配 joviincar 车载歌词」或「给 xxx 加原子通知歌词」时使用。⚠️ 强制前置：动手前必须先向用户确认目标包名（要原子通知歌词时只能在 Apple Music / Spotify 二选一），禁止自行指定包名、禁止先干活后补问。
+version: 1.2.0
 ---
 # vivo 车机滚动歌词 + 原子随身听适配 Skill
 
@@ -10,7 +10,7 @@ version: 1.1.1
 1. **车联投屏 / JoviInCar 车机主页滚动歌词**（ucar 通道）
 2. **原子随身听 / 原子通知歌词**（vivomusicmix 通道）
 
-来源：hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四个项目的实车适配，汇总自 `VIVO_CAR_LYRICS_GUIDE.md` 与 `APK_UPDATE_GUIDE.zh-CN.md.txt`。文档里所有「绝不能做」都是踩过的坑。
+来源：hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer、kgka_Music_hl 五个项目的实车适配，汇总自 `VIVO_CAR_LYRICS_GUIDE.md` 与 `APK_UPDATE_GUIDE.zh-CN.md.txt`。文档里所有「绝不能做」都是踩过的坑。
 
 ## ⛔ 第 0 步：包名闸门（强制，先停下）
 
@@ -106,6 +106,19 @@ builder.putString("ucar.media.metadata.LYRICS_WHOLE", lrc);
 - **没有歌词时写负状态**（`LYRICS_WHOLE=""` + `LYRICS_STATUS=1/2`）：永久退回单行。
 - **推空 Bundle 的 `setExtras()`**：会清空车机已收到的 extras，已显示的歌词突然消失。
 
+## 封面也是协议的一部分（纯色封面）
+
+歌词通了不等于封面通了：封面是**另一条链**（卡片进程按 URL 自己下图片），任何一环坏了都表现为**纯色封面**。完整 8 条坑、归一化函数、诊断日志分层见 [references/card-cover.md](references/card-cover.md)，最小清单：
+
+1. **只投 http(s)**：`content://` / `file://` 卡片侧拉不到，宁可返回 null。
+2. **替换字面量占位符**：酷狗 `stdmusic/{size}/...` 原样请求 404，而这个 404 **不出现在我们 App 的日志里**（是卡片进程在拉）。
+3. **默认 https，但要按实测验**：NeriPlayer 上只吃 http，kgka 上 http 被拦必须 https —— 随组件版本变，两边都试过再定论。
+4. **投小图**：480px 级别；1~2MB 原图会让卡片下载超时 → 纯色（「部分歌曲纯色」最常见成因）。
+5. **封面可能来自异步补取**：酷狗搜索接口不给 `imgurl`，要按专辑接口补；投递必须用补取结果，不能直接读原始字段。
+6. **负缓存要有 TTL**：永久不重试 = 一次网络抖动毁掉整场会话的封面。
+7. **空串 ≠ 清空**：歌词刷新时非空才覆盖，真正的清空只发生在换曲。
+8. **协议字段放进 `MediaItem.extras`**：`audio_service` 每次更新整份替换 metadata；`support_event = 31` 要从**首个** MediaItem 就带上。
+
 ## 字段级验证（必做）
 
 改完一定要解包成品包再 grep 一遍。曾因跳过这步漏掉第二条独立注入路径（那个 App 除主桥接类外还有个辅助类同样在写 `LYRICS_LINE`），白发一个版本。
@@ -128,6 +141,8 @@ done
 - **vivo 官方拼写错误必须照抄**：`vivomusicmix.meida.extra.key.action`（不是 media）、`extra.key.meidia_id`（不是 media_id）。写成正确拼写反而收不到。
 - **能力位 `support_event`**：`31 = 7|8|16`（7 基础播控、8 歌词、16 进度条/seek）。缺 `8` 位组件不显示歌词区。合作控制器原样读取不自己补位，缺 `16` 位就永远 `--:--`。
 - **`lrc_change` 是事件**：切歌发一次 + 每 25s 重发一次兜底，不需要高频推。判断写成 `elapsed < 25s 才发` 等于永远不发。
+- **Flutter 播放页空态**：没有当前歌曲时不要返回 `Scaffold(body: SizedBox.shrink())` —— 深色主题下就是整屏纯黑、没有返回入口，只能杀进程。升级安装后数据目录为空（队列\/prefs 全空）最容易踩到。空态必须可见、可退。
+- **`MediaQuery.size` 为 0×0 ≠ 极小窗口**：冷启动首帧 metrics 还没上报，此时 size 是 0×0（`dpr=1.00` 就是线索），布局约束其实已经是真实窗口——不要因此进「极小窗兜底页」；而兜底页本身也必须能看见、能退出。
 - **smali 戒律**：`static` 方法别用 `p0`（VerifyError）；同一寄存器别先 `const-string` 后 `const-wide`；`static final` 字段多线程读写要改 `static volatile`。详见 [references/smali-rules.md](references/smali-rules.md)。
 
 ## 症状速查
@@ -148,7 +163,8 @@ done
 
 - [references/protocols.md](references/protocols.md) 两套协议字段表、能力位、manifest 声明、发送时机
 - [references/troubleshooting.md](references/troubleshooting.md) 症状→根因速查表
-- [references/projects.md](references/projects.md) 四个项目的适配档案
+- [references/card-cover.md](references/card-cover.md) 卡片封面（纯色）8 条坑 + 归一化函数 + 诊断分层
+- [references/projects.md](references/projects.md) 五个项目的适配档案
 - [references/whitelist-packages.md](references/whitelist-packages.md) 11 个包名白名单 + 支持矩阵
 - [references/find-hook-points.md](references/find-hook-points.md) 如何定位 metadata 汇聚点 / 歌词加载器
 - [references/smali-rules.md](references/smali-rules.md) smali 层适配戒律与验证链
