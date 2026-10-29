@@ -52,17 +52,32 @@
 builder.putLong("vivomusicmix.media.metadata.support_event", 31L);
 ```
 
-`31 = 7 | 8 | 16`：
+推荐直接给全量 `4095`（bit0~11 全开，对齐官方 QQ音乐/酷狗/本地音乐白名单），而不是自己拼位。经验证的最小可点播值见下表：
 
-| 位值 | 含义 | 原子源码依据 |
+```java
+builder.putLong("vivomusicmix.media.metadata.support_event", 4095L);
+```
+
+`4095 = 1|2|4|8|16|32|64|128|256|512|1024`：
+
+| 位值 | 含义 | 原子源码依据（反编译 17.0.8.3，含误判纠正） |
 |---|---|---|
 | 1 / 2 / 4 | 基础播控（原子对未知应用默认 7） | `getSupportEvent()` 默认值 |
 | 7 | 播放/暂停/上下曲 | |
 | 8 | **歌词** | `f5/n.java`、`f5/b.java`：`b1.c(P0(), 8)` |
 | 16 | 进度条 / seek / 时间显示 | `t4/d0.java`：`duration > 0 && b1.c(P0(), 16)` |
 | 32 | 自定义颜色 / 互传 | `SettingsMainView`、锁屏组件 |
-| 64 | 列表入口 | `MusicControlPanelView`、`f5/w0.java` |
-| 128 | 未确认 | `f5/w0.java` |
+| 64 | **❤️ 收藏按钮** enable | `f21118s`（之前误标为「列表入口」） |
+| 128 | **循环模式按钮** enable | `f21117r`（之前误标为「未确认/播放列表」） |
+| 256 | **播放列表/当前列表** enable | `f21120u`（`iv_list_current`） |
+| 512 | **喜欢列表** enable | `f21121v`（`iv_list_favorite`） |
+| 1024 | **本地/下载列表** enable | `f21122w`（`iv_list_local`） |
+
+**关键坑（Sonify vivo15 实测）**：
+
+- 后三列（256/512/1024）在组件里读的是 `e1.a(pkgName)` 按**包名白名单**的能力值；对非白名单包（如 Sonify 用 `com.apple.android.music`）回退到 `support_event` 本身。官方白名单返回 4095，所以非白名单包也要给 4095 才能点亮全部列表按钮。
+- 之前误把 128 当「播放列表」、且只给 223（缺 256/512/1024）→ **三个列表按钮（播放列表/喜欢/本地）全部置灰无法点击**。
+- `support_event` 必须**无条件随每次 metadata/extras 发布**（不依赖歌词），否则无歌词的歌曲会连带收藏❤️ 与「播放列表」一起置灰。
 
 **合作控制器 `c0.k0()` 原样读取这个值，不会自己补位**；通用控制器 `y2` 才会根据 `ACTION_SEEK_TO` 自行算出 23。所以走合作路径时缺 16 位就永远 `--:--`。
 
@@ -118,7 +133,72 @@ private static boolean shouldResendLrc() {
 | 尺寸 | 480px 级小图；原图 1~2MB 会下载超时 → 纯色 |
 | 归一化 | https + 替换 `{size}` 占位符 + `Uri.parse` 转义，统一一个出口函数 |
 | 空串语义 | **不是清空**：非空才覆盖，换曲才清 |
-| 能力位 | `support_event = 31` 要随**首个** MediaItem / extras 一起发布 |
+| 能力位 | `support_event = 4095` 要随**首个** MediaItem / extras 一起发布 |
 | 整份替换 | `audio_service` 每次 `mediaItem.add()` 都整份 `setMetadata()`，协议字段必须放进 `extras` 才会被写回 |
 
 诊断日志要分四层：`songId / 原始地址 / 归一后地址 / 是否为空`。原始有、归一后空 = 地址不合法；归一后有、卡片仍纯色 = 卡片侧拉图被拦或超时；原始就空 = 数据源没给。
+
+## 4. 收藏（❤️）与列表入口（Sonify vivo15 实测补充）
+
+### 4.1 收藏按钮怎么来的
+
+收藏按钮通过 `MediaSession.setCustomLayout()` 暴露一个 `CommandButton`，其
+`SessionCommand` 用 `COMMAND_CODE_SESSION_SET_RATING`：
+
+```kotlin
+val favoriteButton = CommandButton.Builder()
+    .setIconResId(if (isFav) R.drawable.ic_nowplaying_favorited
+                  else R.drawable.ic_nowplaying_favorite)
+    .setDisplayName("favorite")
+    .setSessionCommand(SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
+    .build()
+mediaSession?.setCustomLayout(ImmutableList.of(shuffle, repeat, favoriteButton))
+```
+
+App 侧在 `onSetRating()` 里把 `rating as? HeartRating` 解析出收藏状态，执行收藏/取消。
+
+### 4.2 收藏状态回传（解决「点了没反应、再点不取消」）
+
+**根因**：media3 的 `userRating → USER_RATING`、`overallRating → RATING`，而
+原子随身听（CooperateController）读的是 framework 的 `android.media.metadata.RATING`。
+**必须设 `overallRating`（不是 `userRating`）**，否则组件读到的 RATING 恒空、
+`isFavor` 恒 false → 反复发 `heart=true`、卡片 ❤️ 不刷新、也无法取消。
+
+```kotlin
+private fun refreshCurrentRating(isFavorite: Boolean) {
+    val c = mediaControl ?: return
+    val index = c.currentMediaItemIndex
+    if (index == C.INDEX_UNSET) return
+    val item = c.getMediaItemAt(index)
+    val metadata = item.mediaMetadata.buildUpon()
+        .setOverallRating(HeartRating(isFavorite))
+        .build()
+    c.replaceMediaItem(index, item.buildUpon().setMediaMetadata(metadata).build())
+}
+```
+
+收藏后立即回传 `overallRating` 并重发当前 mediaItem，卡片 ❤️ 才会从空心变实心。
+
+### 4.3 播放列表 browse 树（解决「播放列表置灰/点了没内容」）
+
+原子随身听/车机（CooperateController）点「播放列表 / 当前列表 / 喜欢列表」后会
+直接 `subscribe` 这些**固定 parentId**，App 的 `onGetChildren` 必须原样识别并返回：
+
+| parentId | 语义 | 数据源 |
+|---|---|---|
+| `vivomusicmix_current_list` | 当前/播放列表 | 当前播放队列 |
+| `vivomusicmix_favorite_list` | 喜欢列表 | 本地收藏 + 在线收藏（酷狗「我喜欢」） |
+| `vivomusicmix_local_list` | 本地/下载列表 | 本地扫描音乐 `MusicLibrary.songs` |
+
+**在线收藏列表为空的坑**：在线收藏源（如酷狗）若只存 `favoriteHashes`（仅 hash）
+而不存完整歌曲信息，`onGetChildren("vivomusicmix_favorite_list")` 只返回本地收藏
+就看不到在线收藏的歌。修复：在线收藏 sync 时保留 `List<YosMediaItem>` 全量（歌名/
+歌手/封面），收藏列表 = 本地 + 在线 `distinctBy mediaId` 去重；`resolveSongByMediaId`
+也要加在线收藏反查，否则列表点歌解析不到。
+
+### 4.4 JoviInCar（车载投屏）没有收藏按钮 —— 属正常，不可修
+
+JoviInCar 投屏端（智能车载 APK）的音乐卡片**固有 UI 就不渲染 ❤️ 收藏按钮**，它只
+消费播放状态 + ucar 歌词通道。收藏（SET_RATING）和列表入口（browse）是**原子随身听
+手机端**卡片的能力，App 无法通过 MediaSession 协议把 ❤️ 加到投屏卡片上。参考软件
+「荣耀定制音乐」同样是：JoviInCar 只投歌词，收藏只在手机端原子随身听卡片生效。

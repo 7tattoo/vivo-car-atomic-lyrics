@@ -1,4 +1,4 @@
-# 五个历史项目的适配档案
+# 六个历史项目的适配档案
 
 > 先看同类项目怎么做的，再动手。每个项目代表一种目标 App 类型。
 
@@ -47,6 +47,21 @@
 - **封面 8 条坑全踩过**：`{size}` 占位符 404、http 被拦、原图过大超时、酷狗搜索接口不给 `imgurl`、永久负缓存、空串清空已投递封面、`artUri` 读原始字段而不是异步补取结果。完整复盘见 [card-cover.md](card-cover.md)。
 - **UI 侧同时踩到**：升级安装后首启，播放页在「没有当前歌曲」时返回空 `Scaffold` → 整屏纯黑、没有返回入口；冷启动首帧 `MediaQuery.size = 0×0` 又被误判成极小窗口 → 进纯黑兜底页。两处都要换成可见、可退的兜底。
 - **教训**：用户报「封面纯色」时，先分层（原始地址 / 归一后地址 / 卡片侧拉图），别一上来改协议 —— 这次真正的根因里没有一条是协议字段写错。
+
+## 6. Sonify（Apple Music 包名，收藏 + 播放列表能力位专项）
+
+- **引擎/语言**：Kotlin + Jetpack Media3，源码级适配。
+- **本轮要解决的不是歌词，是三个收藏/列表按钮问题**：
+  1. 原子随身听卡片「播放列表」灰色无法点击。
+  2. ❤️ 收藏点击后无变化（实际已收藏成功）、再点无法取消。
+  3. JoviInCar 车载投屏音乐卡片没有 ❤️ 收藏按钮。
+- **根因与修复**（完整细节见 [favorite-playlist.md](favorite-playlist.md) 和 [protocols.md](protocols.md) §2.2/§4）：
+  1. **播放列表置灰** = `support_event` 位没给对。之前给 223（缺 256/512/1024），且误把 128 当播放列表。正确值是 `4095`（bit0~11 全开）：64=收藏❤️、128=循环、256=播放列表、512=喜欢列表、1024=本地列表。其中后三列读的是按包名白名单的能力值，非白名单包回退到 `support_event` 本身，所以要给满 4095。
+  2. **❤️ 无变化/不取消** = 收藏状态回传用错字段。media3 `userRating→USER_RATING`、`overallRating→RATING`，而原子随身听读 framework 的 `RATING`，必须设 `overallRating`（HeartRating），否则 `isFavor` 恒 false。收藏按钮通过 `setCustomLayout` 暴露 `COMMAND_CODE_SESSION_SET_RATING`，App 在 `onSetRating` 解析 HeartRating。
+  3. **JoviInCar 无 ❤️** = 投屏端音乐卡片固有 UI 就不渲染收藏按钮，只消费播放状态 + ucar 歌词。属正常、不可修，参考软件「荣耀定制音乐」同样如此。
+- **参考软件**（`/workspace/mounts/MT2/7tattoo/` 下）：
+  - 原子随身听（手机端功能卡片主体）、智能车载（joviincar 投屏传送端）、荣耀定制音乐（完整支持原子通知 + JoviInCar 的示例软件）。
+- **结论**：Sonify 想点满五个按钮（❤️/循环/播放列表/喜欢/本地），`support_event=4095` + `overallRating` 回传 + `onGetChildren` 识别固定 parentId，三者缺一不可；JoviInCar 收藏按钮本就无解，不要为此再花时间改协议。
 
 ## 通用经验（跨项目）
 

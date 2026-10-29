@@ -78,7 +78,8 @@ SKILL.md                        完整方法论（决策流、5 个 hook、热�
 references/
   protocols.md                  两套协议字段表、能力位、manifest 声明、发送时机
   troubleshooting.md            症状 → 根因速查表
-  card-cover.md                 卡片封面（纯色）8 条坑 + 归一化函数 + 诊断日志
+  card-cover.md                 卡片封面（纯色）10 条坑 + 归一化函数 + 诊断日志
+  favorite-playlist.md          收藏❤️ + 播放列表 browse 树适配（Sonify 实测）
   projects.md                   五个历史项目的适配档案
   whitelist-packages.md         11 个实机验证过的包名 + 支持矩阵
   find-hook-points.md           如何定位 metadata 汇聚点 / 歌词加载器

@@ -1,7 +1,7 @@
 ---
 name: vivo-car-atomic-lyrics
-description: 把任意 Android 音乐 / 音频 App 适配到 vivo 车机的两个歌词显示位：JoviInCar 车联投屏主页滚动歌词（ucar 通道）与原子随身听 / 原子通知歌词（vivomusicmix 通道）。沉淀 hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四项目的实车适配方法。触发词：joviincar 车载歌词、joviincar 歌词适配、车机滚动歌词、车联投屏歌词、原子通知歌词、原子随身听歌词、车载歌词不滚动、切歌变单行、车机单行歌词、vivo 车机歌词、ucar 歌词、vivomusicmix、LYRICS_WHOLE、lrc_change、support_event、卡片封面纯色、原子通知没封面、车机卡片封面、artUri。当用户说「把 xxx 适配 joviincar 车载歌词」或「给 xxx 加原子通知歌词」时使用。⚠️ 强制前置：动手前必须先向用户确认目标包名（要原子通知歌词时只能在 Apple Music / Spotify 二选一），禁止自行指定包名、禁止先干活后补问。
-version: 1.2.0
+description: 把任意 Android 音乐 / 音频 App 适配到 vivo 车机的两个歌词显示位：JoviInCar 车联投屏主页滚动歌词（ucar 通道）与原子随身听 / 原子通知歌词（vivomusicmix 通道）。沉淀 hachimi、TattooMusic、md3Music（Apple Music 包名）、NeriPlayer 四项目的实车适配方法。触发词：joviincar 车载歌词、joviincar 歌词适配、车机滚动歌词、车联投屏歌词、原子通知歌词、原子随身听歌词、车载歌词不滚动、切歌变单行、车机单行歌词、vivo 车机歌词、ucar 歌词、vivomusicmix、LYRICS_WHOLE、lrc_change、support_event、卡片封面纯色、原子通知没封面、车机卡片封面、artUri、原子随身听收藏、原子随身听播放列表、原子通知收藏按钮、❤️收藏没反应、播放列表置灰、喜欢列表、browse 树、vivomusicmix_favorite_list、setRating、HeartRating、overallRating。当用户说「把 xxx 适配 joviincar 车载歌词」或「给 xxx 加原子通知歌词」时使用。⚠️ 强制前置：动手前必须先向用户确认目标包名（要原子通知歌词时只能在 Apple Music / Spotify 二选一），禁止自行指定包名、禁止先干活后补问。
+version: 1.3.0
 ---
 # vivo 车机滚动歌词 + 原子随身听适配 Skill
 
@@ -62,6 +62,19 @@ version: 1.2.0
 4. 出包后用 `scripts/check_protocol_fields.sh` 做字段级验证
 5. 交付前自检包名是否 == 用户确认的包名
 
+### 默认交付标准（原子随身听必做，不是"用户报问题才补"）
+
+原子随身听适配**默认就点满全功能**，不要把收藏/播放列表当"追加项"等用户单独报。清单：
+
+- `support_event = 4095`（bit0~11 全开）无条件随每次 metadata/extras 发布，从**首个** MediaItem 就带。缺 64 收藏❤️、128 循环、256 播放列表、512 喜欢列表、1024 本地列表五按钮置灰。
+- 收藏状态回传用 `overallRating`（HeartRating），**不是** `userRating`；否则卡片 ❤️ 点了不变化、也无法取消。
+- 收藏按钮经 `setCustomLayout` 暴露 `SessionCommand(COMMAND_CODE_SESSION_SET_RATING)`，App 在 `onSetRating` 解析 HeartRating。
+- `onGetChildren` 识别三个固定 parentId：`vivomusicmix_current_list` / `vivomusicmix_favorite_list` / `vivomusicmix_local_list`。
+
+全部细节与字段表见 [references/favorite-playlist.md](references/favorite-playlist.md) 和 [references/protocols.md](references/protocols.md) §2.2/§4。
+
+> ⚠️ 唯一例外：**JoviInCar 车载投屏音乐卡片没有 ❤️ 收藏按钮属固有 UI 限制，不可修**（参考软件「荣耀定制音乐」同样如此），不要为此改协议。收藏和列表入口只存在于原子随身听手机端卡片。
+
 ## 一句话核心认知
 
 网上搜「joviincar 歌词适配版」是单行方案。真正能出滚动多行的参照实现是 **酷我音乐 12.0.8.0**（不是车机版 7.6.6.21）。反编译它的 `ViVoCarLinkMediaSessionBridge`，写车载歌词只有一行有效代码：
@@ -99,6 +112,8 @@ builder.putString("ucar.media.metadata.LYRICS_WHOLE", lrc);
 
 完整最小实现类见 [references/bridge-template.java](references/bridge-template.java)。
 
+> 这 5 个 Hook 只覆盖歌词链路。**收藏❤️ / 播放列表 / 喜欢 / 本地列表属于原子随身听的默认交付标准**，需要额外加：`support_event=4095`、`setCustomLayout` 收藏按钮、`onSetRating` 解析 HeartRating、`overallRating` 回传、`onGetChildren` 三个固定 parentId。完整做法见 [references/favorite-playlist.md](references/favorite-playlist.md)，能力位表见 [references/protocols.md](references/protocols.md) §2.2。
+
 ## 绝不能做的四件事
 
 - **写 `ucar.media.metadata.LYRICS_LINE`**：单行协议信号，车机收到就切单行卡片并忽略 `LYRICS_WHOLE`。
@@ -108,7 +123,7 @@ builder.putString("ucar.media.metadata.LYRICS_WHOLE", lrc);
 
 ## 封面也是协议的一部分（纯色封面）
 
-歌词通了不等于封面通了：封面是**另一条链**（卡片进程按 URL 自己下图片），任何一环坏了都表现为**纯色封面**。完整 8 条坑、归一化函数、诊断日志分层见 [references/card-cover.md](references/card-cover.md)，最小清单：
+歌词通了不等于封面通了：封面是**另一条链**（卡片进程按 URL 自己下图片），任何一环坏了都表现为**纯色封面**。完整 10 条坑（含「切歌写入风暴」专题 9 / 9b）、归一化函数、诊断日志分层见 [references/card-cover.md](references/card-cover.md)，最小清单：
 
 1. **只投 http(s)**：`content://` / `file://` 卡片侧拉不到，宁可返回 null。
 2. **替换字面量占位符**：酷狗 `stdmusic/{size}/...` 原样请求 404，而这个 404 **不出现在我们 App 的日志里**（是卡片进程在拉）。
@@ -117,7 +132,8 @@ builder.putString("ucar.media.metadata.LYRICS_WHOLE", lrc);
 5. **封面可能来自异步补取**：酷狗搜索接口不给 `imgurl`，要按专辑接口补；投递必须用补取结果，不能直接读原始字段。
 6. **负缓存要有 TTL**：永久不重试 = 一次网络抖动毁掉整场会话的封面。
 7. **空串 ≠ 清空**：歌词刷新时非空才覆盖，真正的清空只发生在换曲。
-8. **协议字段放进 `MediaItem.extras`**：`audio_service` 每次更新整份替换 metadata；`support_event = 31` 要从**首个** MediaItem 就带上。
+8. **协议字段放进 `MediaItem.extras`**：`audio_service` 每次更新整份替换 metadata；`support_event = 4095` 要从**首个** MediaItem 就带上。
+9. **切歌 1 秒内不要多次投递**：卡片每收到一笔 `onMetadataChanged` / `lrc_change` 就重下一次封面，多投一笔只是多一次「重下失败变纯色」的机会；去抖 + 内容签名去重 + 换曲首投等歌词就绪再一次性投（详见坑 9 / 9b）。
 
 ## 字段级验证（必做）
 
@@ -139,7 +155,7 @@ done
 
 - 「间歇性/莫名不通」不等于鉴权问题。先看日志：报错 5ms 内本地抛、message 为 null → 主线程网络或本地异常。
 - **vivo 官方拼写错误必须照抄**：`vivomusicmix.meida.extra.key.action`（不是 media）、`extra.key.meidia_id`（不是 media_id）。写成正确拼写反而收不到。
-- **能力位 `support_event`**：`31 = 7|8|16`（7 基础播控、8 歌词、16 进度条/seek）。缺 `8` 位组件不显示歌词区。合作控制器原样读取不自己补位，缺 `16` 位就永远 `--:--`。
+- **能力位 `support_event`**：推荐直接给全量 `4095`（bit0~11，对齐官方白名单），而不是拼 `31 = 7|8|16`。缺 `8` 位组件不显示歌词区；缺 `16` 位合作控制器永远 `--:--`；缺 `64/128/256/512/1024` 收藏❤️、循环、播放列表、喜欢、本地列表五个按钮置灰。完整位表见 [references/protocols.md](references/protocols.md) §2.2。
 - **`lrc_change` 是事件**：切歌发一次 + 每 25s 重发一次兜底，不需要高频推。判断写成 `elapsed < 25s 才发` 等于永远不发。
 - **Flutter 播放页空态**：没有当前歌曲时不要返回 `Scaffold(body: SizedBox.shrink())` —— 深色主题下就是整屏纯黑、没有返回入口，只能杀进程。升级安装后数据目录为空（队列\/prefs 全空）最容易踩到。空态必须可见、可退。
 - **`MediaQuery.size` 为 0×0 ≠ 极小窗口**：冷启动首帧 metrics 还没上报，此时 size 是 0×0（`dpr=1.00` 就是线索），布局约束其实已经是真实窗口——不要因此进「极小窗兜底页」；而兜底页本身也必须能看见、能退出。
@@ -163,10 +179,11 @@ done
 
 - [references/protocols.md](references/protocols.md) 两套协议字段表、能力位、manifest 声明、发送时机
 - [references/troubleshooting.md](references/troubleshooting.md) 症状→根因速查表
-- [references/card-cover.md](references/card-cover.md) 卡片封面（纯色）8 条坑 + 归一化函数 + 诊断分层
+- [references/card-cover.md](references/card-cover.md) 卡片封面（纯色）10 条坑 + 归一化函数 + 诊断分层
 - [references/projects.md](references/projects.md) 五个项目的适配档案
 - [references/whitelist-packages.md](references/whitelist-packages.md) 11 个包名白名单 + 支持矩阵
 - [references/find-hook-points.md](references/find-hook-points.md) 如何定位 metadata 汇聚点 / 歌词加载器
 - [references/smali-rules.md](references/smali-rules.md) smali 层适配戒律与验证链
 - [references/bridge-template.java](references/bridge-template.java) 最小可用实现类
+- [references/favorite-playlist.md](references/favorite-playlist.md) 收藏❤️ + 播放列表 browse 树适配（Sonify 实测）
 - [scripts/](scripts/) 三个验证/定位脚本
